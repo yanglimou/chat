@@ -5,16 +5,24 @@
                 <van-icon name="ellipsis" size="1.5rem" @click="toMyQunDetail()" />
             </template></van-nav-bar>
         <div class="center" ref="scrollDiv">
-            <div class="chat" v-for="item in viewList" :key="item.id" @click="cancel(item)">
+            <div class="chat" v-for="item in viewList" :key="item.id">
                 <div class="chat_time">{{ item.time }}</div>
-                <div class="chat_content" :class="item.isMe === '1' ? 'chat_content_right' : 'chat_content_left'">
+                <div class="chat_content" :class="item.isMe ? 'chat_content_right' : 'chat_content_left'">
                     <img :src="item.headUrl" class="chat_head" />
-                    <div v-if="item.content" class="chat_text">
-                        <div>
-                            {{ item.content }}
+                    <div class="chat_content_wrap">
+                        <div class="chat_content_name" v-if="item.chatType === 1 && !item.isMe">{{
+                            item.userName
+                        }}</div>
+                        <div v-if="item.content" class="chat_text">
+                            <div v-if="item.fromUserId === userId" v-longpress="() => cancel(item)">
+                                {{ item.content }}
+                            </div>
+                            <div v-else>
+                                {{ item.content }}
+                            </div>
                         </div>
+                        <img v-longpress="() => cancel(item)" v-else class="chat_img" :src="item.contentImage" alt="">
                     </div>
-                    <img v-else class="chat_img" :src="item.contentImage" alt="">
                 </div>
             </div>
         </div>
@@ -34,6 +42,9 @@
 import { mapGetters, mapActions, mapState, mapMutations } from 'vuex'
 import '../lib/sparrowChat'
 import { getSessionKey } from '../lib/sparrowChat'
+import { Dialog } from 'vant';
+import '../lib/imgCompression'
+import imgCompression from '../lib/imgCompression';
 const TEXT_MESSAGE = 0;
 const IMAGE_MESSAGE = 1;
 const CHAT_TYPE_1_2_1 = 0;
@@ -46,7 +57,40 @@ export default {
             interval: null,
         };
     },
+    directives: {
+        longpress: {
+            bind(el, binding) {
+                console.log(binding)
+                let timer;
+                const start = () => {
+                    timer = setTimeout(() => {
+                        if (binding.value) {
+                            binding.value()
+                        }
+                    }, 800);
+                }
+                const stop = () => {
+                    if (timer) {
+                        clearTimeout(timer)
+                    }
+                }
+                el.addEventListener("touchstart", (e) => {
+                    e.preventDefault()
+                    stop()
+                    start()
+                })
+                // el.addEventListener("touchmove", (e) => {
+                //     stop()
+                // })
+                el.addEventListener("touchend", (e) => {
+                    e.preventDefault()
+                    stop()
+                })
+            }
+        }
+    },
     mounted() {
+        this.handleScrollBottom()
         this.read()
         this.interval = setInterval(() => {
             this.read()
@@ -58,21 +102,25 @@ export default {
     },
     computed: {
         ...mapState(['userId']),
-        ...mapGetters(['getSessionById', "getUserImageById"]),
+        ...mapGetters(['getSessionById', "getUserImageById", "getUserById"]),
         viewList() {
             this.session = this.getSessionById(this.$route.query.id);
             if (this.session == null) {
                 return []
             }
             return this.session.messages.map(message => {
+
+                const user = this.getUserById(message.fromUserId);
                 return {
+                    chatType: message.chatType,
+                    userName: user.userName,
                     fromUserId: message.fromUserId,
                     id: message.clientSendTime,
-                    isMe: message.fromUserId == this.userId ? '1' : '2',
+                    isMe: message.fromUserId === this.userId,
                     time: this.$moment(message.clientSendTime).format('MM月DD日 HH:mm'),
                     content: message.messageType === 0 ? this.$Base64.decode(message.content) : null,
                     contentImage: message.messageType === 1 ? message.content : null,
-                    headUrl: message.fromUserId == this.userId ? "https://img01.yzcdn.cn/vant/cat.jpeg" : this.getUserImageById(message.fromUserId),
+                    headUrl: this.getUserImageById(message.fromUserId),
                 }
             })
         }
@@ -84,13 +132,24 @@ export default {
             // this.$router.push({ name: 'myQunDetail', query: { id: this.session.chatSession.sessionKey } })
         },
         async cancel(item) {
-            const param = {
-                fromUserId: item.fromUserId,
-                clientSendTime: item.id,
-                sessionKey: this.session.chatSession.sessionKey,
-                chatType: this.session.chatSession.chatType,
-            }
-            this.cancelMessage(param);
+            if (item.fromUserId !== this.userId) { return }
+            Dialog.confirm({
+                title: '消息撤回',
+                message: '请确认是否撤销消息',
+            })
+                .then(() => {
+                    console.log("cancel", item)
+                    const param = {
+                        fromUserId: item.fromUserId,
+                        clientSendTime: item.id,
+                        sessionKey: this.session.chatSession.sessionKey,
+                        chatType: this.session.chatSession.chatType,
+                    }
+                    this.cancelMessage(param);
+                })
+                .catch(() => {
+                    // on cancel
+                });
         },
         read() {
             if (this.session == null) {
@@ -110,7 +169,6 @@ export default {
                 this.session = session
             }
             this.readSession(this.session.chatSession.sessionKey)
-            this.handleScrollBottom()
         },
         // 滚动到底部
         handleScrollBottom() {
@@ -124,7 +182,12 @@ export default {
             this.$router.go(-1)
         },
         async afterRead(file) {
-            console.log(file)
+            const options = {
+                maxSizeMB: 0.1,
+                maxWidthOrHeight: 1920,
+                useWebWorker: true,
+            };
+            file = await imgCompression(file.file, options)
             await new Promise((resolve, reject) => {
                 const fileReader = new FileReader();
                 fileReader.onload = () => {
@@ -137,12 +200,12 @@ export default {
                             to: this.session.chatSession.target,
                             sessionKey: this.session.chatSession.sessionKey,
                             msg: new Uint8Array(fileReader.result),
-                            image: file.content,
+                            image: window.URL.createObjectURL(file),
                             clientSendTime: Date.now()
                         })
                     resolve();
                 }
-                fileReader.readAsArrayBuffer(file.file);
+                fileReader.readAsArrayBuffer(file);
             })
             this.handleScrollBottom()
         },
@@ -216,6 +279,25 @@ export default {
     flex-direction: row;
 }
 
+.chat_content_wrap {
+    flex: 1 0 0;
+    width: 0;
+}
+
+.chat_content_right .chat_content_wrap {
+    margin-right: 1rem;
+    text-align: right;
+}
+
+.chat_content_left .chat_content_wrap {
+    margin-left: 1rem;
+}
+
+.chat_content_right .chat_content_name {
+    text-align: right;
+    margin-bottom: 0.1rem;
+}
+
 .chat_text {
     /* margin-left: 1rem; */
     /* margin-right: 1rem; */
@@ -226,8 +308,8 @@ export default {
     /* padding: 0.5rem 1rem; */
     /* border-radius: 4px; */
     /* white-space: pre-wrap; */
-    flex: 1 0 0;
-    width: 0;
+    /* flex: 1 0 0; */
+    /* width: 0; */
     display: flex;
 }
 
@@ -241,21 +323,17 @@ export default {
 
 .chat_content_right .chat_text {
     flex-direction: row-reverse;
-    margin-right: 1rem;
-
 }
 
 .chat_content_left .chat_text {
     flex-direction: row;
-    margin-left: 1rem;
-
 }
 
 .chat_img {
     max-width: 10rem;
     max-height: 10rem;
-    margin-left: 1rem;
-    margin-right: 1rem;
+    /* margin-left: 1rem; */
+    /* margin-right: 1rem; */
 }
 
 .bottom {

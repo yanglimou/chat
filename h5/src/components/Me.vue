@@ -1,6 +1,6 @@
 <template>
     <div class="me">
-        <van-form @submit="logout">
+        <van-form @submit="out">
             <div style="margin: 16px;">
                 <van-button round block type="info" native-type="submit">退出登录</van-button>
             </div>
@@ -9,14 +9,16 @@
 </template>
 
 <script>
-
+import { mapActions, mapMutations } from 'vuex';
 export default {
     data() {
         return {
         };
     },
     methods: {
-        logout() {
+        ...mapActions(["logout"]),
+        out() {
+            this.logout();
             this.$router.replace({ name: 'login' })
         }
     }

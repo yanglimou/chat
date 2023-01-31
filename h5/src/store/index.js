@@ -4,10 +4,11 @@ import axios from "axios"
 import Vuex from "vuex" //引入vuex
 Vue.use(Vuex) //使用vuex
 import { wsmessage2data, data2wsmessage, localmessage2data } from '../lib/sparrowChat'
+import { createWs } from '../lib/webSocket'
 export default new Vuex.Store({
     state: {
         sessions: [],
-        contacts: [],
+        contacts: {},
         ws: null,
         userId: null,
     },
@@ -38,6 +39,9 @@ export default new Vuex.Store({
         }
     },
     mutations: {
+        setWs(state, ws) {
+            state.ws = ws
+        },
         setUserId(state, userId) {
             state.userId = userId
         },
@@ -62,37 +66,53 @@ export default new Vuex.Store({
         }
     },
     actions: {
-        initWs(context) {
-            console.log("current user:" + context.state.userId)
-            context.state.ws = new WebSocket("ws://chat.sparrowzoo.com/websocket", [context.state.userId]);
-            //申请一个WebSocket对象，参数是服务端地址，同http协议使用http://开头一样，WebSocket协议的url使用ws://开头，另外安全的WebSocket协议使用wss://开头
-            context.state.ws.onopen = function (e) {
-                //当WebSocket创建成功时，触发onopen事件
-                console.log("open");
+        logout(context) {
+            if (context.state.ws) {
+                context.state.ws.reconnect = () => { }
+                context.state.ws.close()
+                context.commit("setWs", null)
             }
-            context.state.ws.onmessage = async (e) => {
-                const result = await wsmessage2data(e.data)
-                console.log(result)
-                if (result.chatType === 2) {
-                    //取消的逻辑//修改本地数据
-                    context.commit('removeMessage', { sessionKey: result.sessionKey, clientSendTime: result.clientSendTime })
-                } else {
-                    //其他消息的逻辑
-                    let session = context.getters.getSessionById(result.session)
-                    console.log(session)
-                    if (session) {
+            context.commit("setUserId", null)
+            context.commit("setSessions", [])
+            context.commit("setContacts", {})
+        },
+        initWs(context) {
+            const f = () => {
+                let ws = createWs(context.state.userId, async (e) => {
+                    const result = await wsmessage2data(e.data)
+                    console.log(result)
+                    if (result.chatType === 2) {
+                        //取消的逻辑//修改本地数据
+                        context.commit('removeMessage', { sessionKey: result.sessionKey, clientSendTime: result.clientSendTime })
+                    } else {
+                        //其他消息的逻辑
+                        let session = context.getters.getSessionById(result.session)
+                        console.log(session)
+                        if (!session) {
+                            session =
+                            {
+                                "chatSession": {
+                                    "chatType": result.chatType,
+                                    "me": context.state.userId,
+                                    "sessionKey": result.session,
+                                    "target": result.targetUserId
+                                },
+                                "lastReadTime": result.clientSendTime - 1,
+                                "messages": [
+                                ]
+                            }
+                            context.commit("addSession", session)
+                        }
                         session.messages.push(result)
                     }
-                }
+                }, () => {
+                    console.log("重连");
+                    f()
+                })
+                context.commit("setWs", ws)
             }
-            context.state.ws.onclose = function (e) {
-                //当客户端收到服务端发送的关闭连接请求时，触发onclose事件
-                console.log("close");
-            }
-            context.state.ws.onerror = function (e) {
-                //如果出现连接、处理、接收、发送数据失败的时候触发onerror事件
-                console.log(e);
-            }
+            f()
+
         },
         sendMessage(context, { chatType, msgType, from, to, sessionKey, msg, image, clientSendTime }) {
             console.log(context, chatType, msgType, from, to, sessionKey, msg)

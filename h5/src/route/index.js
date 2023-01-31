@@ -44,7 +44,6 @@ const router = new VueRouter({
 });
 
 router.beforeEach((to, from, next) => {
-    console.log(to.meta)
     if (to.meta.pass) {
         console.log('route pass')
         next()

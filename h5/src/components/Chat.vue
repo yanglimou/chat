@@ -39,7 +39,6 @@ export default {
         ...mapGetters(["getQunById", "getUserById"]),
         viewList() {
             return this.sessions.filter(session => session.messages.length > 0).map(session => {
-                console.log(session)
                 const chatType = session.chatSession.chatType; //1群 0用户
                 const sessionKey = session.chatSession.sessionKey;//唯一id，可以作为群名
                 const target = session.chatSession.target;//用户id
@@ -50,22 +49,21 @@ export default {
                 if (chatType === 0) {
                     // 普通用户
                     const user = this.getUserById(target);
-                    console.log(user)
                     return {
                         id: sessionKey,
                         target: target,
                         type: chatType,
-                        title: user ? user.userName : (target !== session.chatSession.me ? '用户' + target : "我"),
+                        title: user.userName,
                         lastMessageTime: lastMessageTime,
                         time: this.$moment(lastMessageTime).format('YY/MM/DD'),
                         content: lastMessageContent,
                         count: unReadCount,
-                        headUrl: user && target !== session.chatSession.me ? user.avatar : "https://img01.yzcdn.cn/vant/cat.jpeg",
+                        headUrl: user.avatar
                     }
                 } else {
                     const qun = this.getQunById(sessionKey);
                     const user = this.getUserById(lastMessage.fromUserId);
-                    const userTitle = user ? user.userName : (lastMessage.fromUserId !== session.chatSession.me ? '用户' + lastMessage.fromUserId : "我")
+                    const userTitle = user.userName
                     // 群
                     return {
                         id: sessionKey,
