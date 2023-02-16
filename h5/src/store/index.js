@@ -1,16 +1,18 @@
 
 import Vue from "vue"
-import axios from "axios"
 import Vuex from "vuex" //引入vuex
 Vue.use(Vuex) //使用vuex
 import { wsmessage2data, data2wsmessage, localmessage2data } from '../lib/sparrowChat'
 import { createWs } from '../lib/webSocket'
+import { read, cancel } from '../request'
 export default new Vuex.Store({
     state: {
         sessions: [],
         contacts: {},
+        systemInfos: [],
         ws: null,
         userId: null,
+        token: null,
     },
     getters: {
         getSessionById: (state) => (id) => {
@@ -39,6 +41,9 @@ export default new Vuex.Store({
         }
     },
     mutations: {
+        setToken(state, token) {
+            state.token = token
+        },
         setWs(state, ws) {
             state.ws = ws
         },
@@ -63,6 +68,9 @@ export default new Vuex.Store({
             if (session) {
                 session.messages = session.messages.filter(message => message.clientSendTime !== clientSendTime)
             }
+        },
+        setSystemInfos(state, systemInfos) {
+            state.systemInfos = systemInfos;
         }
     },
     actions: {
@@ -131,7 +139,7 @@ export default new Vuex.Store({
         async readSession(context, sessionKey) {
             // 修改远程数据
             const session = context.getters.getSessionById(sessionKey);
-            const res = await axios.post(`chat/session/read`, {
+            const res = await read({
                 chatType: session.chatSession.chatType,
                 sessionKey: session.chatSession.sessionKey,
                 userId: session.chatSession.me
@@ -144,7 +152,7 @@ export default new Vuex.Store({
         async cancelMessage(context, { fromUserId, clientSendTime, sessionKey, chatType }) {
             console.log(context, fromUserId, clientSendTime, sessionKey, chatType)
             // 修改远程数据
-            const res = await axios.post(`chat/cancel`, {
+            const res = await cancel({
                 fromUserId: fromUserId,
                 clientSendTime: clientSendTime + "",
                 sessionKey: sessionKey,

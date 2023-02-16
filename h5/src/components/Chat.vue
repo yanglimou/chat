@@ -2,11 +2,13 @@
     <div class="chat">
         <van-row gutter="10">
             <van-col span="18"><van-button type="default" icon="search" size="small" block>搜索</van-button></van-col>
-            <van-col span="3"><van-button type="default" icon="plus" size="small" block></van-button> </van-col>
+            <van-col span="3"><van-button type="default" icon="plus" size="small" block
+                    @click="toAddFriend"></van-button> </van-col>
             <van-col span="3"><van-button type="default" icon="friends-o" size="small" block
                     @click="toMyFriend"></van-button> </van-col>
         </van-row>
-        <div class="chat_item" v-for="item in viewList" :key="item.id" @click="toChatPerson(item)">
+        <div class="chat_item" v-for="item in viewList" :key="item.id"
+            @click="item.isSystem ? toSystem() : toChatPerson(item)">
             <van-badge :content="item.count > 1 ? item.count : null" :dot="item.count == 1">
                 <img :src="item.headUrl" class="child" />
             </van-badge>
@@ -35,10 +37,10 @@ export default {
         };
     },
     computed: {
-        ...mapState(['sessions']),
+        ...mapState(['sessions', "systemInfos"]),
         ...mapGetters(["getQunById", "getUserById"]),
         viewList() {
-            return this.sessions.filter(session => session.messages.length > 0).map(session => {
+            const concat = this.sessions.filter(session => session.messages.length > 0).map(session => {
                 const chatType = session.chatSession.chatType; //1群 0用户
                 const sessionKey = session.chatSession.sessionKey;//唯一id，可以作为群名
                 const target = session.chatSession.target;//用户id
@@ -79,6 +81,30 @@ export default {
                 }
             })
                 .sort((s1, s2) => s2.lastMessageTime - s1.lastMessageTime)
+
+            let systemInfo;
+            if (this.systemInfos.length > 0) {
+                systemInfo = {
+                    isSystem: true,
+                    id: "noticeId_" + this.systemInfos[0].noticeId,
+                    title: this.systemInfos[0].noticeContent,
+                    time: this.$moment(this.systemInfos[0].createTime).format('YY/MM/DD'),
+                    content: this.systemInfos[0].noticeTitle,
+                    count: 0,
+                    headUrl: systemImage
+                }
+            } else {
+                systemInfo = {
+                    isSystem: true,
+                    id: "noticeId_0",
+                    title: null,
+                    time: null,
+                    content: null,
+                    count: 0,
+                    headUrl: systemImage
+                }
+            }
+            return [systemInfo].concat(concat)
             // [
             // {
             //     id: Math.random(),
@@ -104,6 +130,12 @@ export default {
         }
     },
     methods: {
+        toSystem() {
+            this.$router.push({ name: 'systemInfo' })
+        },
+        toAddFriend() {
+            this.$router.push({ name: 'addFriend' })
+        },
         toChatPerson(item) {
             console.log(item)
             this.$router.push({ name: 'chatPerson', query: { id: item.id, target: item.target, title: item.title } })

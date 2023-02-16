@@ -9,13 +9,6 @@ Vue.use(Vant);
 
 import router from './route'
 
-import axios from 'axios'
-axios.defaults.baseURL = 'http://chat.sparrowzoo.com'
-axios.interceptors.response.use(req => {
-  return req.data.data
-}, err => { });
-
-Vue.prototype.$http = axios
 
 
 import moment from "moment"
@@ -24,7 +17,6 @@ Vue.prototype.$moment = moment;
 import { Base64 } from 'js-base64'
 Vue.prototype.$Base64 = Base64;
 import store from "./store"
-
 
 import './lib/sparrowChat'
 

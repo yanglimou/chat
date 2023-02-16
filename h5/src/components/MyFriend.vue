@@ -40,8 +40,8 @@ export default {
     data() {
         return {
             cmds: [
-                { title: "添加好友", image: addImage, fun: () => { } },
-                { title: "新的朋友", image: newFriendImage, fun: () => { } },
+                { title: "添加好友", image: addImage, fun: this.toAddFriend },
+                { title: "新的朋友", image: newFriendImage, fun: this.toNewFriend },
                 { title: "我的群聊", image: groupImage, fun: this.toMyQun },
             ]
         };
@@ -49,6 +49,12 @@ export default {
     methods: {
         onClickLeft() {
             this.$router.go(-1)
+        },
+        toAddFriend() {
+            this.$router.push({ name: 'addFriend' })
+        },
+        toNewFriend() {
+            this.$router.push({ name: 'newFriend' })
         },
         toChatPerson(user) {
             this.$router.push({ name: 'chatPerson', query: { id: getSessionKey(this.userId, user.userId), target: user.userId, title: '用户' + user.userId } })

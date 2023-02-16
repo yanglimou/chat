@@ -14,6 +14,9 @@ const router = new VueRouter({
             name: "login", component: () => import('../components/Login')
         },
         { path: '/chatPerson', name: "chatPerson", component: () => import('../components/ChatPerson') },
+        { path: '/addFriend', name: "addFriend", component: () => import('../components/AddFriend') },
+        { path: '/newFriend', name: "newFriend", component: () => import('../components/NewFriend') },
+        { path: '/systemInfo', name: "systemInfo", component: () => import('../components/SystemInfo') },
         {
             path: '/main',
             component: () => import('../components/Main'),
